@@ -1,4 +1,4 @@
-module pkhack.eb.decomp;
+module decomp;
 
 import std.stream;
 import std.stdio;
@@ -6,73 +6,89 @@ import std.stdio;
 private const int BANKSIZE = 0x10000;
 enum command : int { UNCOMPRESSED = 0, BYTEFILL, SHORTFILL, BYTEFILLINCREASING, BUFFERCOPY, BITREVERSEDBUFFERCOPY, BYTEREVERSEDBUFFERCOPY, EXTENDCOMMAND}
 
-ubyte[] decomp(std.stream.File inputFile, int offset) {
+ubyte[] decomp(Stream input, int offset) {
 	int throwAway;
-	return decomp(inputFile, offset, throwAway);
+	return decomp(input, offset, throwAway);
 }
-ubyte[] decomp(std.stream.File inputFile, int offset, out int compressedSize) {
+ubyte[] decomp(Stream input) {
+	int throwAway;
+	return decomp(input, 0, throwAway);
+}
+ubyte[] decomp(Stream input, out int compressedSize) {
+	return decomp(input, 0, compressedSize);
+}
+ubyte[] decomp(ubyte[] input) {
+	int throwAway;
+	return decomp(new MemoryStream(input), 0, throwAway);
+}
+ubyte[] decomp(ubyte[] input, out int compressedSize) {
+	return decomp(new MemoryStream(input), 0, compressedSize);
+}
+ubyte[] decomp(Stream input, int offset, out int compressedSize) {
 	debug writefln("Seeking to 0x%X", offset);
 	debug writeln("----------------");
-	inputFile.position = offset;
+	input.position = offset;
 	ubyte[] buffer = new ubyte[BANKSIZE];
 	ubyte[] uncompbuff;
 	ubyte commandbyte,commandbyte2, tmp, tmp2;
 	command commandID;
 	ushort commandLength, bufferpos;
 	int decompSize = 0;
-	while(inputFile.position - offset < BANKSIZE) { //compressed data cannot exceed 64KB
-		inputFile.read(commandbyte);
+	while(input.position - offset < BANKSIZE) { //compressed data cannot exceed 64KB
+		input.read(commandbyte);
 		commandID = cast(command)(commandbyte >> 5);
 		commandLength = (commandbyte & 0x1F) + 1;
-		debug writefln("Position: %X", inputFile.position-1);
+		debug writefln("Position: %X", input.position-1);
 		if (commandID == command.EXTENDCOMMAND) { //Extended range
-			inputFile.read(commandbyte2);
 			commandID = cast(command)((commandbyte & 0x1C) >> 2);
+			if (commandID == command.EXTENDCOMMAND) //End of data
+				break;
+			input.read(commandbyte2);
 			commandLength = ((commandbyte & 3) << 8) + commandbyte2 + 1;
 			debug writeln("Extended command");
 		}
 		debug writeln("Command: ", commandID);
 		debug writeln("Length: ", commandLength);
-		if ((commandID >= 4) && (commandID < 7)) { //Read buffer position
-			inputFile.read(tmp);
-			inputFile.read(tmp2);
+		if ((commandID >= command.BUFFERCOPY) && (commandID < command.EXTENDCOMMAND)) { //Read buffer position
+			input.read(tmp);
+			input.read(tmp2);
 			bufferpos = (tmp << 8) + tmp2;
 			debug writefln("Buffer range: [%d..%d]", bufferpos, bufferpos+commandLength);
-			assert(bufferpos < BANKSIZE, "Buffer size exceeds bank size!");
+			assert(bufferpos < BANKSIZE, "Buffer position exceeds bank size!");
+			assert(bufferpos < decompSize, "Buffer contents at position unknown!");
 		}
 		if (commandID == command.UNCOMPRESSED) { //Following data is uncompressed
 			uncompbuff = new ubyte[commandLength];
-			inputFile.read(uncompbuff);
+			input.read(uncompbuff);
 			buffer[decompSize..decompSize+commandLength] = uncompbuff;
 		} else if (commandID == command.BYTEFILL) { //Fill range with following byte
-			inputFile.read(tmp);
+			input.read(tmp);
 			buffer[decompSize..decompSize+commandLength] = tmp;
 		} else if (commandID == command.SHORTFILL) { //Fill range with following short
-			inputFile.read(tmp);
-			inputFile.read(tmp2);
+			input.read(tmp);
+			input.read(tmp2);
 			commandLength *= 2;
 			buffer[decompSize..decompSize+commandLength] = [tmp,tmp2].stripe(commandLength);
 		} else if (commandID == command.BYTEFILLINCREASING) { //Fill range with increasing byte, beginning with following value
-			inputFile.read(tmp);
+			input.read(tmp);
 			buffer[decompSize..decompSize+commandLength] = tmp.increaseval(commandLength);
-		} else if (commandID == command.BUFFERCOPY) { //Copy from buffer
-			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos..bufferpos+commandLength].dup;
-		} else if (commandID == command.BITREVERSEDBUFFERCOPY) { //Copy from buffer, but with reversed bits
+		} else if (commandID == command.BUFFERCOPY) //Copy from buffer
+			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos..bufferpos+commandLength];
+		else if (commandID == command.BITREVERSEDBUFFERCOPY) //Copy from buffer, but with reversed bits
 			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos..bufferpos+commandLength].reversebits;
-		} else if (commandID == command.BYTEREVERSEDBUFFERCOPY) { //Copy from buffer, but with reversed bytes
+		else if (commandID == command.BYTEREVERSEDBUFFERCOPY) //Copy from buffer, but with reversed bytes
 			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos-commandLength+1..bufferpos+1].dup.reverse;
-		} else
-			break; //End of decompressed data
 		decompSize += commandLength;
 		debug writeln("----------------");
 	}
 	debug writeln("----------------");
-	compressedSize = cast(int)inputFile.position - offset - 1;
+	compressedSize = cast(int)input.position - offset;
 	buffer.length = decompSize;
 	debug writeln("Final data: ", buffer);
 	return buffer;
 }
-T[] reversebits(T)(T[] input) {
+
+T[] reversebits(T)(T[] input) { //Todo: take type size into account
 	ubyte[] output;
 	ubyte tmp;
 	output.length = (cast(ubyte[])input).length;
@@ -85,52 +101,16 @@ T[] reversebits(T)(T[] input) {
 	}
 	return cast(T[])output;
 }
-ubyte[] increaseval(ubyte input, int length) {
+@safe ubyte[] increaseval(ubyte input, int length) {
 	ubyte[] output = new ubyte[length];
 	foreach(ref val; output)
 		val = input++;
 	return output;
 }
-T[] stripe(T)(T[] input, int length) {
+@safe T[] stripe(T)(T[] input, int length) {
 	T[] output = new T[length];
 	assert(input != [], "Cannot stripe with empty array");
 	foreach (i, ref outval; output)
 		outval = input[i%input.length];
 	return output;
-}
-unittest {
-	void test(lazy bool expr, string label, bool expectException = false) {
-		write("[DECOMP] " ~ label ~ ":");
-		try {
-			if (!expr)
-				writeln("FAILED");
-			else
-				writeln("PASSED");
-		} catch (Exception e) {
-			if (!expectException)
-				writeln("FAILED: " ~ e.msg);
-			else
-				writeln("PASSED");
-		} catch (core.exception.AssertError e) {
-			if (!expectException)
-				writeln("FAILED: " ~ e.msg);
-			else
-				writeln("PASSED");
-		}
-	}
-	import std.exception;
-	test([0,1,2].stripe(10) == [0, 1, 2, 0, 1, 2, 0, 1, 2, 0], "Striping: Int");
-	test(["hi","sup"].stripe(4) == ["hi", "sup", "hi", "sup"], "Striping: String");
-	ubyte[] testv;
-	test(testv.stripe(2) == [], "Striping: Null input exception", true);
-
-	test((0).increaseval(1) == [0], "Increaseval: First value unaltered");
-	test((0).increaseval(3) == [0, 1, 2], "Increaseval: algorithm");
-	test((255).increaseval(3) == [255, 0, 1], "Increaseval: Wrapping values");
-	test((0).increaseval(0) == [], "Increaseval: Void");
-
-	test([1].reversebits == [128], "Bit reversal: algorithm");
-	test([1, 2, 4, 5].reversebits == [128, 64, 32, 160], "Bit reversal: array");
-	test("HELLO".reversebits == [18, 162, 50, 50, 242], "Bit reversal: string");
-	test([].reversebits == [], "Bit reversal: void");
 }
