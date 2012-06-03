@@ -2,6 +2,7 @@ module decomp;
 
 import std.stream;
 import std.stdio;
+import std.algorithm;
 
 private const int BANKSIZE = 0x10000;
 enum command : int { UNCOMPRESSED = 0, BYTEFILL, SHORTFILL, BYTEFILLINCREASING, BUFFERCOPY, BITREVERSEDBUFFERCOPY, BYTEREVERSEDBUFFERCOPY, EXTENDCOMMAND}
@@ -68,14 +69,14 @@ ubyte[] decomp(Stream input, int offset, out int compressedSize) {
 			input.read(tmp);
 			input.read(tmp2);
 			commandLength *= 2;
-			buffer[decompSize..decompSize+commandLength] = [tmp,tmp2].stripe(commandLength);
+			buffer[decompSize..decompSize+commandLength].fill([tmp,tmp2]);
 		} else if (commandID == command.BYTEFILLINCREASING) { //Fill range with increasing byte, beginning with following value
 			input.read(tmp);
 			buffer[decompSize..decompSize+commandLength] = tmp.increaseval(commandLength);
 		} else if (commandID == command.BUFFERCOPY) //Copy from buffer
 			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos..bufferpos+commandLength];
 		else if (commandID == command.BITREVERSEDBUFFERCOPY) //Copy from buffer, but with reversed bits
-			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos..bufferpos+commandLength].reversebits;
+			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos..bufferpos+commandLength].dup.reversebits;
 		else if (commandID == command.BYTEREVERSEDBUFFERCOPY) //Copy from buffer, but with reversed bytes
 			buffer[decompSize..decompSize+commandLength] = buffer[bufferpos-commandLength+1..bufferpos+1].dup.reverse;
 		decompSize += commandLength;
@@ -88,29 +89,21 @@ ubyte[] decomp(Stream input, int offset, out int compressedSize) {
 	return buffer;
 }
 
-T[] reversebits(T)(T[] input) { //Todo: take type size into account
-	ubyte[] output;
-	ubyte tmp;
-	output.length = (cast(ubyte[])input).length;
-	int i = 0;
-	foreach (val; cast(ubyte[])input.dup) {
-		tmp = ((val >> 1) & 0x55) | ((val << 1) & 0xAA);
-		tmp = ((tmp >> 2) & 0x33) | ((tmp << 2) & 0xCC);
-		tmp = ((tmp >> 4) & 0x0F) | ((tmp << 4) & 0xF0);
-		output[i++] = tmp;
+T[] reversebits(T)(T[] input) { 
+	foreach (ref val; cast(ubyte[])input) {
+		val = ((val >> 1) & 0x55) | ((val << 1) & 0xAA);
+		val = ((val >> 2) & 0x33) | ((val << 2) & 0xCC);
+		val = ((val >> 4) & 0x0F) | ((val << 4) & 0xF0);
 	}
-	return cast(T[])output;
+	if (input[0].sizeof > 1)
+		for (int i = 0; i < input.length; i++)
+			(cast(ubyte[])input)[i*input[0].sizeof..(i+1)*input[0].sizeof].reverse;
+
+	return input;
 }
 @safe ubyte[] increaseval(ubyte input, int length) {
 	ubyte[] output = new ubyte[length];
 	foreach(ref val; output)
 		val = input++;
-	return output;
-}
-@safe T[] stripe(T)(T[] input, int length) {
-	T[] output = new T[length];
-	assert(input != [], "Cannot stripe with empty array");
-	foreach (i, ref outval; output)
-		outval = input[i%input.length];
 	return output;
 }
