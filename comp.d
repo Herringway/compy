@@ -2,10 +2,17 @@ module comp;
 
 import std.algorithm;
 import std.array;
+import std.stream;
 debug import std.stdio;
 
 ubyte[] function(ubyte[] input, ubyte[] buffer, out ushort size)[] compFuncs = [ &repeatByte, &repeatWord, &incByteFill, &bufferCopy, &bitReverseBufferCopy, &byteReverseBufferCopy ];
 
+ubyte[] comp(std.stream.File input) {
+	assert(input.size < 0x10000, "Cannot compress a file that large!");
+	ubyte[] buf = new ubyte[cast(ushort)input.size];
+	input.read(buf);
+	return comp(buf);
+}
 ubyte[] comp(ubyte[] input) {
 	ubyte[] buffer = input;
 	ubyte[] output, tmpBuffer, tmpBuffer2, uncompBuffer;
@@ -95,18 +102,17 @@ private ubyte[] bufferCopy(ubyte[] input, ubyte[] buffer, out ushort size) {
 	if (input.empty || buffer.empty)
 		return [];
 	size = cast(ushort)min(input.length, 1024);
-	debug writeln(buffer);
-	int tmp = -1;
+	long tmp = -1;
 	while ((tmp == -1) && (size > 0)) {
 		tmp = countUntil(buffer, input[0..size--]);
 	}
 	return buildCommand(4, size, cast(ushort)tmp);
 }
 private ubyte[] bitReverseBufferCopy(ubyte[] input, ubyte[] buffer, out ushort size) {
-	return [];
+	return buildCommand(5, 0, []);
 }
 private ubyte[] byteReverseBufferCopy(ubyte[] input, ubyte[] buffer, out ushort size) {
-	return [];
+	return buildCommand(6, 0, []);
 }
 private ubyte[] buildCommand(ubyte ID, ushort length, ubyte payLoad) {
 	return buildCommand(ID,length,[payLoad]);
@@ -116,7 +122,9 @@ private ubyte[] buildCommand(ubyte ID, ushort length, ushort payLoad) {
 }
 private ubyte[] buildCommand(ubyte ID, ushort length, ubyte[] payLoad) {
 	ubyte[] output;
-	if (length <= 32) {
+	if (length == 0) {
+		return [];
+	} else if (length <= 32) {
 		output = new ubyte[payLoad.length+1];
 		output[0] = cast(ubyte)((ID<<5) + ((length-1)&0x1F));
 	} else {
