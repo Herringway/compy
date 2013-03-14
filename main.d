@@ -9,7 +9,8 @@ else import decomp;
 
 int main(string[] argv)
 {
-	version(comp) {
+	version(unittest) {
+	} else version(comp) {
 		if (argv.length < 4) {
 			stderr.writefln("Usage: %s romfile offset input", argv[0]);
 			return 1;
@@ -20,7 +21,6 @@ int main(string[] argv)
 		file.position = parseOffset(argv[2]);
 		file.write(compdata);
 		writefln("Compression ratio: %d/%d", compdata.length, inputFile.size);
-		return 0;
 	} else {
 		if (argv.length < 4) {
 			stderr.writefln("Usage: %s romfile offset output", argv[0]);
@@ -36,8 +36,8 @@ int main(string[] argv)
 			(new std.stdio.File(argv[3], "wb")).rawWrite(output);
 
 		writefln("Compression ratio: %d/%d", compsize, output.length);
-		return 0;
 	}
+	return 0;
 }
 int parseOffset(string arg) {
 	int offset;
