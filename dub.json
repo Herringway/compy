@@ -1,0 +1,30 @@
+{
+	"name": "d-comp",
+	"description": "A compression/decompression algorithm used in 1990s HAL games",
+	"copyright": "Copyright © 2014, Cameron",
+	"authors": ["Cameron \"Herringway\" Ross"],
+	"license": "MIT",
+	"homepage": "https://github.com/Herringway/D-comp",
+	"configurations": [
+		{
+			"name": "comp",
+			"targetType": "executable",
+			"targetName": "comp",
+			"mainSourceFile": "app.d",
+			"versions": ["comp"]
+		},
+		{
+			"name": "decomp",
+			"targetType": "executable",
+			"targetName": "decomp",
+			"mainSourceFile": "app.d",
+			"versions": ["decomp"]
+		},
+		{
+			"name": "library",
+			"targetType": "library",
+			"excludedSourceFiles": ["source/app.d"],
+			"sourceFiles": ["source/comp.d", "source/decomp.d"]
+		}
+	]
+}

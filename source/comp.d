@@ -60,6 +60,25 @@ ubyte[] comp(ubyte[] input) {
 	debug writeln("Compressed size: ", output.length + 1);
 	return output ~ 0xFF;
 }
+unittest {
+	void comptest(ubyte[] input, string msg, int idealsize = -1) {
+		import decomp;
+		auto data = comp(input);
+		assert(decomp.decomp(data) == input, "Comp: " ~ msg);
+		if (idealsize >= 0)
+			assert(data.length == idealsize, "Comp: " ~ msg ~ " ideal size");
+	}
+
+	comptest([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], "Byte-fill Compression");
+	comptest([1,2,1,2,1,2,1,2,1,2,1,2,1,2], "Word-fill Compression");
+	comptest([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], "Increasing Byte-fill Compression");
+	comptest([1,3,3,3,3,3,7,1,3,3,3,3,3,7,1,3,3,3,3,3,7], "Buffer Compression", 13);
+	comptest([1,3,3,3,3,3,7,7,3,3,3,3,3,1,7,3,3,3,3,3,1], "Reverse Buffer Compression", 13);
+	comptest([1,3,3,3,3,3,7,128,192,192,192,192,192,224,128,192,192,192,192,192,224], "Bit-reversed Buffer Compression", 13);
+	ubyte[] testArray = new ubyte[513];
+	testArray[] = 1;
+	comptest(testArray, "Extended byte-fill", 4);
+}
 
 private ubyte[] uncompdata(ubyte[] input, out ushort size) {
 	size = cast(ushort)min(input.length,1024);

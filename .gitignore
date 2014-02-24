@@ -61,3 +61,10 @@ packages/
 #D stuff
 *.deps
 *.visualdproj
+
+#dub
+__test__library__
+
+#output
+comp
+decomp
