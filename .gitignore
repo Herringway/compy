@@ -68,3 +68,6 @@ __test__library__
 #output
 comp
 decomp
+
+.dub
+dub.selections.json
