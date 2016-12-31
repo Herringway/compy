@@ -2,17 +2,10 @@ module comp;
 
 import std.algorithm;
 import std.array;
-import std.stream;
 debug import std.stdio;
 
 @safe pure nothrow immutable ubyte[] function(ubyte[] input, ubyte[] buffer, out ushort size)[] compFuncs = [ &repeatByte, &repeatWord, &incByteFill, &bufferCopy, &bitReverseBufferCopy, &byteReverseBufferCopy ];
 
-ubyte[] comp(std.stream.File input) {
-	assert(input.size < 0x10000, "Cannot compress a file that large!");
-	ubyte[] buf = new ubyte[cast(ushort)input.size];
-	input.read(buf);
-	return comp(buf);
-}
 ubyte[] comp(ubyte[] input) {
 	ubyte[] buffer = input;
 	ubyte[] output, tmpBuffer, tmpBuffer2, uncompBuffer;

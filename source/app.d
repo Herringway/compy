@@ -1,5 +1,4 @@
 import std.stdio;
-import std.stream;
 import std.format;
 
 int main(string[] argv)

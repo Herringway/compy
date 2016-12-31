@@ -1,42 +1,12 @@
 module decomp;
 
-import std.stream;
 import std.range;
 import std.algorithm;
 import std.exception;
 
 private enum BANKSIZE = 0x10000;
 private enum command : ubyte { UNCOMPRESSED = 0, BYTEFILL, SHORTFILL, BYTEFILLINCREASING, BUFFERCOPY, BITREVERSEDBUFFERCOPY, BYTEREVERSEDBUFFERCOPY, EXTENDCOMMAND}
-struct StreamRange {
-	Stream wrapped;
-	void popFront() {
-		wrapped.position = wrapped.position+1;
-	}
-	ubyte front() {
-		scope(exit) wrapped.position = wrapped.position-1;
-		ubyte output = void;
-		wrapped.read(output);
-		return output;
-	}
-	bool empty() {
-		return wrapped.eof;
-	}
-	ubyte[] opSlice(ulong a, ulong b) {
-		return [];
-	}
-	ubyte opIndex(size_t a) {
-		return 0;
-	}
-	ulong length() {
-		return wrapped.size;
-	}
-}
-ubyte[] decomp(Stream input, size_t offset = 0) {
-	int throwAway;
-	auto range = StreamRange(input);
-	range.popFrontN(offset);
-	return decomp(StreamRange(input), throwAway);
-}
+
 ubyte[] decomp(ubyte[] input) {
 	int throwAway;
 	return decomp(input, throwAway);
@@ -94,8 +64,6 @@ ubyte[] decomp(T)(T input, out int compressedSize) if (isInputRange!T) {
 	return buffer;
 }
 unittest {
-	assert(decomp([0x63, 0x00, 0xFF]) == decomp(new MemoryStream(cast(ubyte[])[0x63, 0x00, 0xFF])), "Decomp: Stream == array");
-
 	assertThrown(decomp([0x80, 0xFF, 0x00, 0xFF]) == [], "Decomp: Uninitialized buffer");
 
 	void decomptest(ubyte[] input, ubyte[] output, string msg) {
