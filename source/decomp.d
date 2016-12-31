@@ -96,15 +96,43 @@ unittest {
 	assert((255).increaseval(3) == [255, 0, 1], "Increaseval: Wrapping values");
 	assert((0).increaseval(0) == [], "Increaseval: Void");
 }
-T[] reversebits(T)(T[] input) pure @nogc { 
-	foreach (ref val; cast(ubyte[])input) {
-		val = ((val >> 1) & 0x55) | ((val << 1) & 0xAA);
-		val = ((val >> 2) & 0x33) | ((val << 2) & 0xCC);
-		val = ((val >> 4) & 0x0F) | ((val << 4) & 0xF0);
+T[] reversebits(T)(T[] input) pure @nogc {
+	union ByteAddressable {
+		static if (is(T == void)) {
+			ubyte val;
+			ubyte byteVal;
+		} else {
+			T val;
+			static if (T.sizeof == 1) {
+				ubyte byteVal;
+			} else static if (T.sizeof == 2) {
+				ushort shortVal;
+			} else static if (T.sizeof == 4) {
+				uint intVal;
+			}
+		}
+		ubyte[val.sizeof] rawBytes;
 	}
-	if (input[0].sizeof > 1)
-		for (int i = 0; i < input.length; i++)
-			(cast(ubyte[])input)[i*input[0].sizeof..(i+1)*input[0].sizeof].reverse();
+	foreach (ref val; cast(ByteAddressable[])input) {
+		static if (T.sizeof == 1) {
+			val.byteVal = ((val.byteVal >> 1) & 0x55) | ((val.byteVal << 1) & 0xAA);
+			val.byteVal = ((val.byteVal >> 2) & 0x33) | ((val.byteVal << 2) & 0xCC);
+			val.byteVal = ((val.byteVal >> 4) & 0x0F) | ((val.byteVal << 4) & 0xF0);
+		} else static if (T.sizeof == 2) {
+			val.shortVal = ((val.shortVal & 0x5555) << 1) | ((val.shortVal & 0xAAAA) >> 1);
+			val.shortVal = ((val.shortVal & 0x3333) << 2) | ((val.shortVal & 0xCCCC) >> 2);
+			val.shortVal = ((val.shortVal & 0x0F0F) << 4) | ((val.shortVal & 0xF0F0) >> 4);
+			val.shortVal = ((val.shortVal & 0x00FF) << 8) | ((val.shortVal & 0xFF00) >> 8);
+		} else static if (T.sizeof == 4) {
+			val.intVal = ((val.intVal & 0x55555555) << 1) | ((val.intVal & 0xAAAAAAAA) >> 1);
+			val.intVal = ((val.intVal & 0x33333333) << 2) | ((val.intVal & 0xCCCCCCCC) >> 2);
+			val.intVal = ((val.intVal & 0x0F0F0F0F) << 4) | ((val.intVal & 0xF0F0F0F0) >> 4);
+			val.intVal = ((val.intVal & 0x00FF00FF) << 8) | ((val.intVal & 0xFF00FF00) >> 8);
+			val.intVal = ((val.intVal & 0x0000FFFF) << 16) | ((val.intVal & 0xFFFF0000) >> 16);
+		} else {
+			static assert(0, "Unsupported");
+		}
+	}
 
 	return input;
 }
