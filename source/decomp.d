@@ -3,6 +3,7 @@ module decomp;
 import std.range;
 import std.algorithm;
 import std.exception;
+import std.traits;
 
 private enum BANKSIZE = 0x10000;
 private enum command : ubyte { UNCOMPRESSED = 0, BYTEFILL, SHORTFILL, BYTEFILLINCREASING, BUFFERCOPY, BITREVERSEDBUFFERCOPY, BYTEREVERSEDBUFFERCOPY, EXTENDCOMMAND}
@@ -96,7 +97,12 @@ unittest {
 	assert((255).increaseval(3) == [255, 0, 1], "Increaseval: Wrapping values");
 	assert((0).increaseval(0) == [], "Increaseval: Void");
 }
-T[] reversebits(T)(T[] input) pure @nogc {
+T[] reversebits(T)(T[] input) if (!isMutable!T) {
+	Unqual!T[] output = input.dup;
+	output.reversebits();
+	return output;
+}
+T[] reversebits(T)(T[] input) if (isMutable!T) {
 	union ByteAddressable {
 		static if (is(T == void)) {
 			ubyte val;
@@ -113,7 +119,7 @@ T[] reversebits(T)(T[] input) pure @nogc {
 		}
 		ubyte[val.sizeof] rawBytes;
 	}
-	foreach (ref val; cast(ByteAddressable[])input) {
+	foreach (ref val; () @trusted { return cast(ByteAddressable[])input; }()) {
 		static if (T.sizeof == 1) {
 			val.byteVal = ((val.byteVal >> 1) & 0x55) | ((val.byteVal << 1) & 0xAA);
 			val.byteVal = ((val.byteVal >> 2) & 0x33) | ((val.byteVal << 2) & 0xCC);
@@ -133,13 +139,12 @@ T[] reversebits(T)(T[] input) pure @nogc {
 			static assert(0, "Unsupported");
 		}
 	}
-
 	return input;
 }
-unittest {
+pure nothrow @safe unittest {
 	assert([cast(ubyte)1].reversebits == [cast(ubyte)128], "Bit reversal: algorithm");
 	assert((cast(ubyte[])[1, 2, 4, 5]).reversebits == cast(ubyte[])[128, 64, 32, 160], "Bit reversal: array");
-	assert("HELLO".reversebits == cast(string)[18, 162, 50, 50, 242], "Bit reversal: string");
+	assert("HELLO".reversebits == "\x12\xA2\x32\x32\xF2", "Bit reversal: string");
 	assert([].reversebits == [], "Bit reversal: nothing");
 	assert([cast(uint)0x80000000].reversebits == [1], "Bit reversal: int");
 }
