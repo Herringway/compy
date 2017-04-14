@@ -23,16 +23,16 @@ ubyte[] decomp(T)(T input, out int compressedSize) if (isInputRange!T) {
 	command commandID = void;
 	ushort commandLength = void, bufferpos = void;
 	int decompSize = 0;
-	while(decompSize < BANKSIZE) { //decompressed data cannot exceed 64KB
+	decompLoop: while(decompSize < BANKSIZE) { //decompressed data cannot exceed 64KB
 		commandbyte = input.readByte();
 		compressedSize++;
 		commandID = cast(command)(commandbyte >> 5);
 		if (commandID == command.EXTENDCOMMAND) { //Extend length of command
 			commandID = cast(command)((commandbyte & 0x1C) >> 2);
-			if (commandID == command.EXTENDCOMMAND) //Double extend marks end of data
-				break;
-			commandLength = ((commandbyte & 3) << 8) + input.readByte() + 1;
-			compressedSize++;
+			if (commandID != command.EXTENDCOMMAND) { //Double extend does not have a length
+				commandLength = ((commandbyte & 3) << 8) + input.readByte() + 1;
+				compressedSize++;
+			}
 		} else
 			commandLength = (commandbyte & 0x1F) + 1;
 		if ((commandID >= command.BUFFERCOPY) && (commandID < command.EXTENDCOMMAND)) { //Read buffer position
@@ -57,7 +57,7 @@ ubyte[] decomp(T)(T input, out int compressedSize) if (isInputRange!T) {
 				buffer[decompSize..decompSize+commandLength] = buffer[bufferpos..bufferpos+commandLength].dup.reversebits; break;
 			case BYTEREVERSEDBUFFERCOPY: //Copy from buffer, but with reversed bytes
 				buffer[decompSize..decompSize+commandLength] = buffer[bufferpos-commandLength+1..bufferpos+1].dup; buffer[decompSize..decompSize+commandLength].reverse(); break;
-			case EXTENDCOMMAND: break;
+			case EXTENDCOMMAND: break decompLoop;
 		}
 		decompSize += commandLength;
 	}
