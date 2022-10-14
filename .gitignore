@@ -67,3 +67,4 @@ __test__library__
 
 .dub
 dub.selections.json
+*.pdb
