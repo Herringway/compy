@@ -9,15 +9,15 @@ import std.range;
 import std.traits;
 
 enum BANKSIZE = 0x10000;
-private static immutable (ubyte[] function(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow)[] compFuncsV1 = [ &repeatByte, &repeatWord, &incByteFill, &bufferCopyBigEndian ];
-private static immutable (ubyte[] function(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow)[] compFuncsV2 = [ &repeatByte, &repeatWord, &incByteFill, &bufferCopy ];
+private static immutable (ubyte[] function(const(ubyte)[] input, const(ubyte)[] buffer, out ushort size) @safe pure nothrow)[] compFuncsV1 = [ &repeatByte, &repeatWord, &incByteFill, &bufferCopyBigEndian ];
+private static immutable (ubyte[] function(const(ubyte)[] input, const(ubyte)[] buffer, out ushort size) @safe pure nothrow)[] compFuncsV2 = [ &repeatByte, &repeatWord, &incByteFill, &bufferCopy ];
 
 private enum NintendoCommand1 : ubyte { uncompressed = 0, byteFill, shortFill, byteFillIncreasing, bufferCopy, unused1, unused2, extend }
 
 /// Format used in early SNES games by Nintendo. Also known as LC_LZ1.
 struct NintendoLZ1 {
-	static ubyte[] comp(ubyte[] input) @safe {
-		ubyte[] buffer = input;
+	static ubyte[] comp(const(ubyte)[] input) @safe {
+		const(ubyte)[] buffer = input;
 		ubyte[] output, tmpBuffer, tmpBuffer2, uncompBuffer;
 		ushort size, tmpSize, uncompSize;
 		short bufferPos = -1;
@@ -62,7 +62,7 @@ struct NintendoLZ1 {
 		debug(verbosecomp) writefln("Compressed size: %d/%d (%0.2f)", output.length + 1, buffer.length, (cast(double)output.length + 1.0) / cast(double)buffer.length * 100.0);
 		return output ~ 0xFF;
 	}
-	static ubyte[] decomp(ubyte[] input) @safe {
+	static ubyte[] decomp(const(ubyte)[] input) @safe {
 		size_t throwAway;
 		return decomp(input, throwAway);
 	}
@@ -126,8 +126,8 @@ struct NintendoLZ1 {
 }
 /// Format used in early SNES games by Nintendo. Identical to NintendoLZ1, except 'bufferCopy' is big endian. Also known as LC_LZ2.
 struct NintendoLZ2 {
-	static ubyte[] comp(ubyte[] input) @safe {
-		ubyte[] buffer = input;
+	static ubyte[] comp(const(ubyte)[] input) @safe {
+		const(ubyte)[] buffer = input;
 		ubyte[] output, tmpBuffer, tmpBuffer2, uncompBuffer;
 		ushort size, tmpSize, uncompSize;
 		short bufferPos = -1;

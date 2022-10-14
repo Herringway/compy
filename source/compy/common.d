@@ -23,11 +23,11 @@ enum Format {
 	NintendoLZ2
 }
 
-ubyte[] decomp(Format format, ubyte[] input) @safe {
+ubyte[] decomp(Format format, const ubyte[] input) @safe {
 	size_t unused;
 	return decomp(format, input, unused);
 }
-ubyte[] decomp(Format format, ubyte[] input, out size_t compressedSize) @safe {
+ubyte[] decomp(Format format, const ubyte[] input, out size_t compressedSize) @safe {
 	final switch (format) {
 		case Format.HALLZ1: return HALLZ1.decomp(input, compressedSize);
 		case Format.HALLZ2: return HALLZ2.decomp(input, compressedSize);
@@ -36,7 +36,7 @@ ubyte[] decomp(Format format, ubyte[] input, out size_t compressedSize) @safe {
 	}
 }
 
-ubyte[] comp(Format format, ubyte[] input) @safe {
+ubyte[] comp(Format format, const ubyte[] input) @safe {
 	final switch (format) {
 		case Format.HALLZ1: return HALLZ1.comp(input);
 		case Format.HALLZ2: return HALLZ2.comp(input);
@@ -54,7 +54,7 @@ ubyte readByte(T)(ref T file) {
 	return v;
 }
 
-ubyte[] uncompdata(ubyte[] input, out ushort size) @safe {
+ubyte[] uncompdata(const ubyte[] input, out ushort size) @safe {
 	size = cast(ushort)min(input.length,1024);
 	return buildCommand(0, size, input[0..size]);
 }
@@ -99,7 +99,7 @@ pure nothrow @nogc @safe unittest {
 	assert(cast(ubyte)1.reversebits == cast(ubyte)128, "Bit reversal: algorithm");
 	assert(cast(uint)0x80000000.reversebits == 1, "Bit reversal: int");
 }
-ubyte[] repeatByte(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] repeatByte(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	ubyte match = input[0];
 	foreach (val; input) {
 		if ((val != match) || (size == 1024))
@@ -108,10 +108,10 @@ ubyte[] repeatByte(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure no
 	}
 	return buildCommand(1, size, match);
 }
-ubyte[] repeatWord(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] repeatWord(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	if (input.length < 2)
 		return [];
-	ubyte[] match = input[0..2];
+	const(ubyte)[] match = input[0..2];
 	foreach (k, val; input) {
 		if ((val != match[k%2]) || (size == 1024))
 			break;
@@ -121,7 +121,7 @@ ubyte[] repeatWord(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure no
 	size *= 2;
 	return buildCommand(2,size/2, match);
 }
-ubyte[] incByteFill(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] incByteFill(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	ubyte initialVal, tmpVal;
 	initialVal = tmpVal = input[0];
 	size = 1;
@@ -132,7 +132,7 @@ ubyte[] incByteFill(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure n
 	}
 	return buildCommand(3,size,initialVal);
 }
-ubyte[] zeroFill(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] zeroFill(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	size = 0;
 	foreach (k, val; input[1..$]) {
 		if (val != 0) {
@@ -142,7 +142,7 @@ ubyte[] zeroFill(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure noth
 	}
 	return buildCommand(3, size, []);
 }
-ubyte[] bufferCopy(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] bufferCopy(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	import std.range : empty;
 	if (input.empty || buffer.empty)
 		return [];
@@ -153,7 +153,7 @@ ubyte[] bufferCopy(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure no
 	}
 	return buildCommand(4, size, cast(ushort)tmp);
 }
-ubyte[] bufferCopyBigEndian(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] bufferCopyBigEndian(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	import std.range : empty;
 	if (input.empty || buffer.empty)
 		return [];
@@ -164,10 +164,10 @@ ubyte[] bufferCopyBigEndian(ubyte[] input, ubyte[] buffer, out ushort size) @saf
 	}
 	return buildCommandBE(4, size, cast(ushort)tmp);
 }
-ubyte[] bitReverseBufferCopy(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] bitReverseBufferCopy(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	return buildCommand(5, 0, []);
 }
-ubyte[] byteReverseBufferCopy(ubyte[] input, ubyte[] buffer, out ushort size) @safe pure nothrow {
+ubyte[] byteReverseBufferCopy(const ubyte[] input, const ubyte[] buffer, out ushort size) @safe pure nothrow {
 	return buildCommand(6, 0, []);
 }
 ubyte[] buildCommand(ubyte ID, ushort length, ubyte payLoad) @safe pure nothrow {
@@ -179,7 +179,7 @@ ubyte[] buildCommand(ubyte ID, ushort length, ushort payLoad) @safe pure nothrow
 ubyte[] buildCommandBE(ubyte ID, ushort length, ushort payLoad) @safe pure nothrow {
 	return buildCommand(ID,length,[payLoad>>8, payLoad&0xFF]);
 }
-ubyte[] buildCommand(ubyte ID, ushort length, ubyte[] payLoad) @safe pure nothrow {
+ubyte[] buildCommand(ubyte ID, ushort length, const ubyte[] payLoad) @safe pure nothrow {
 	ubyte[] output;
 	if (length == 0) {
 		return [];
